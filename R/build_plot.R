@@ -305,7 +305,7 @@ if (view =="right"){
 
   #adjust xylim for left and right views --- probably can get rid of this with correct inital placement ratios
   if(view=="left") {
-  p <- p + coord_fixed(xlim = c(-64,98), ylim = c(-48,84))  # Was c(-44,76)
+  p <- p + coord_fixed(xlim = c(-60,98), ylim = c(-44,84))  # Was c(-44,76) #   p <- p + coord_fixed(xlim = c(-64,98), ylim = c(-48,84))  # Was c(-44,76)
   }
   if(view=="right") {
     p <- p + coord_fixed(xlim = c(-98,64), ylim = c(-48,84))  # Was c(-44,76)
