@@ -57,47 +57,44 @@ build_plot <- function(conmat,
   }
 
   if (view =="front"){
-    x.mni<-data$x.mni
-    y.mni<-data$z.mni
-    depth <- data$y.mni
-    xmax = 70     + bg_xmax
-    xmin = -70    + bg_xmin
-    ymax = 80     + bg_ymax
-    ymin = -68    + bg_ymin
-  }
+  x.mni<-data$x.mni
+  y.mni<-data$z.mni
+  depth <- data$y.mni
+  xmax = 70     + bg_xmax
+  xmin = -70    + bg_xmin
+  ymax = 88     + bg_ymax  # Was 80, now +10% → 88
+  ymin = -75    + bg_ymin  # Was -68, now -10% → -75
+}
 
+if (view =="back"){
+  x.mni<-data$x.mni*-1
+  y.mni<-data$z.mni
+  depth <- data$y.mni*-1
+  xmax = 70    + bg_xmax
+  xmin = -70   + bg_xmin
+  ymax = 110   + bg_ymax   # Was 100, now +10% → 110
+  ymin = -53   + bg_ymin   # Was -48, now -10% → -53
+}
 
-  if (view =="back"){
-    x.mni<-data$x.mni*-1
-    y.mni<-data$z.mni
-    depth <- data$y.mni*-1
-    xmax = 70    + bg_xmax
-    xmin = -70   + bg_xmin
-    ymax = 100    + bg_ymax
-    ymin = -48   + bg_ymin
-  }
+if (view =="left"){
+  x.mni<-data$y.mni*-1
+  y.mni<-data$z.mni
+  depth <- data$x.mni
+  xmax = 103   + bg_xmax
+  xmin = -72   + bg_xmin
+  ymax = 85    + bg_ymax   # Was 77, now +10% → 85
+  ymin = -55   + bg_ymin   # Was -50, now -10% → -55
+}
 
-
-  if (view =="left"){
-    x.mni<-data$y.mni*-1
-    y.mni<-data$z.mni
-    depth <- data$x.mni
-    xmax = 103   + bg_xmax
-    xmin = -72   + bg_xmin
-    ymax = 77    + bg_ymax
-    ymin = -50   + bg_ymin
-  }
-
-  ##fix below
-  if (view =="right"){
-    x.mni<-data$y.mni
-    y.mni<-data$z.mni
-    depth <- data$x.mni*-1
-    xmax = 103   + bg_xmax
-    xmin = -140  + bg_xmin
-    ymax = 77    + bg_ymax
-    ymin = -50   + bg_ymin
-  }
+if (view =="right"){
+  x.mni<-data$y.mni
+  y.mni<-data$z.mni
+  depth <- data$x.mni*-1
+  xmax = 103   + bg_xmax
+  xmin = -140  + bg_xmin
+  ymax = 85    + bg_ymax   # Was 77, now +10% → 85
+  ymin = -55   + bg_ymin   # Was -50, now -10% → -55
+}
 
 
   #is matrix directed (i.e. symetric)
@@ -308,9 +305,11 @@ build_plot <- function(conmat,
 
   #adjust xylim for left and right views --- probably can get rid of this with correct inital placement ratios
   if(view=="left") {
-    p <- p + coord_fixed(xlim = c(-64,98), ylim = c(-44,76)) }
+  p <- p + coord_fixed(xlim = c(-64,98), ylim = c(-48,84))  # Was c(-44,76)
+  }
   if(view=="right") {
-    p <- p + coord_fixed(xlim = c(-98,64), ylim = c(-44,76)) }
+    p <- p + coord_fixed(xlim = c(-98,64), ylim = c(-48,84))  # Was c(-44,76)
+  }
 
   #set node size with degree option  #### NOT WORKING ###
   #ifelse(node.size=="degree", node.size <- as.vector((degree(graph_from_adjacency_matrix(conmat)))*0.2), node.size <- node.size)
