@@ -81,9 +81,9 @@ if (view =="left"){
   y.mni<-data$z.mni
   depth <- data$x.mni
   xmax = 113   + bg_xmax
-  xmin = -75   + bg_xmin #72
+  xmin = -72   + bg_xmin
   ymax = 85    + bg_ymax   # Was 77, now +10% → 85
-  ymin = -52   + bg_ymin #-55  # Was -50, now -10% → -55
+  ymin = -55   + bg_ymin   # Was -50, now -10% → -55
 }
 
 if (view =="right"){
