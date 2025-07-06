@@ -63,7 +63,7 @@ build_plot <- function(conmat,
     xmax = 70     + bg_xmax
     xmin = -70    + bg_xmin
     ymax = 80     + bg_ymax
-    ymin = -52    + bg_ymin
+    ymin = -68    + bg_ymin
   }
 
 
@@ -73,8 +73,8 @@ build_plot <- function(conmat,
     depth <- data$y.mni*-1
     xmax = 70    + bg_xmax
     xmin = -70   + bg_xmin
-    ymax = 80    + bg_ymax
-    ymin = -52   + bg_ymin
+    ymax = 100    + bg_ymax
+    ymin = -48   + bg_ymin
   }
 
 
@@ -85,7 +85,7 @@ build_plot <- function(conmat,
     xmax = 103   + bg_xmax
     xmin = -72   + bg_xmin
     ymax = 77    + bg_ymax
-    ymin = -54   + bg_ymin
+    ymin = -50   + bg_ymin
   }
 
   ##fix below
@@ -96,7 +96,7 @@ build_plot <- function(conmat,
     xmax = 103   + bg_xmax
     xmin = -140  + bg_xmin
     ymax = 77    + bg_ymax
-    ymin = -54   + bg_ymin
+    ymin = -50   + bg_ymin
   }
 
 
