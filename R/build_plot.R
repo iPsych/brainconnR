@@ -81,9 +81,9 @@ if (view =="left"){
   y.mni<-data$z.mni
   depth <- data$x.mni
   xmax = 113   + bg_xmax
-  xmin = -72   + bg_xmin
+  xmin = -75   + bg_xmin #72
   ymax = 85    + bg_ymax   # Was 77, now +10% → 85
-  ymin = -55   + bg_ymin   # Was -50, now -10% → -55
+  ymin = -52   + bg_ymin #-55  # Was -50, now -10% → -55
 }
 
 if (view =="right"){
@@ -305,7 +305,7 @@ if (view =="right"){
 
   #adjust xylim for left and right views --- probably can get rid of this with correct inital placement ratios
   if(view=="left") {
-  p <- p + coord_fixed(xlim = c(-60,98), ylim = c(-44,84))  # Was c(-44,76) #   p <- p + coord_fixed(xlim = c(-64,98), ylim = c(-48,84))  # Was c(-44,76)
+  p <- p + coord_fixed(xlim = c(-64,98), ylim = c(-48,84))  # Was c(-44,76) #   p <- p + coord_fixed(xlim = c(-64,98), ylim = c(-48,84))  # Was c(-44,76)
   }
   if(view=="right") {
     p <- p + coord_fixed(xlim = c(-98,64), ylim = c(-48,84))  # Was c(-44,76)
