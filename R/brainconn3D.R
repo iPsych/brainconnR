@@ -73,8 +73,8 @@ brainconn3D <- function(atlas=NULL,
   if (!is.null(uthr)) {conmat[conmat > thr] <- 0} #upper threshold graph
 
   #set up mesh
-  vb <- get("new_ICBM152_mesh_vb")
-  it <- get("new_ICBM152_mesh_it")
+  vb <- get("ICBM152_mesh_vb")
+  it <- get("ICBM152_mesh_it")
 
   x <- vb[1,]
   y <- vb[2,]
