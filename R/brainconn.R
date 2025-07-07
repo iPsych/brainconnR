@@ -28,8 +28,8 @@
 #' @import ggraph
 #' @import cowplot
 #' @import grid
-#' @import OpenImageR
 #' @importFrom grDevices rgb
+#' @importFrom scales colour_ramp brewer_pal rescale
 #' @examples
 #' library(brainconn)
 #' x <- example_unweighted_undirected
@@ -60,7 +60,77 @@ brainconn <- function(atlas,
                       bg_ymax=0,
                       bg_ymin=0) {
 
-
+  # Helper function to generate 2D background from 3D mesh
+  generate_background <- function(view, background.alpha, bg_xmin, bg_ymin, bg_xmax, bg_ymax) {
+    # Load 3D mesh data once
+    vb <- get("ICBM152_mesh_vb")
+    it <- get("ICBM152_mesh_it")
+    
+    # Extract 3D coordinates
+    x_3d <- vb[1,]
+    y_3d <- vb[2,]
+    z_3d <- vb[3,]
+    
+    # Apply view-specific coordinate transformations
+    if (view == "top") {
+      x_2d <- x_3d
+      y_2d <- y_3d
+      depth <- z_3d
+    } else if (view == "bottom") {
+      x_2d <- x_3d * -1
+      y_2d <- y_3d
+      depth <- z_3d * -1
+    } else if (view == "front") {
+      x_2d <- x_3d
+      y_2d <- z_3d
+      depth <- y_3d
+    } else if (view == "back") {
+      x_2d <- x_3d * -1
+      y_2d <- z_3d
+      depth <- y_3d * -1
+    } else if (view == "left") {
+      x_2d <- y_3d * -1
+      y_2d <- z_3d
+      depth <- x_3d
+    } else if (view == "right") {
+      x_2d <- y_3d
+      y_2d <- z_3d
+      depth <- x_3d * -1
+    }
+    
+    # Set view-specific limits
+    if (view %in% c("top", "bottom")) {
+      xmax = 70 + bg_xmax; xmin = -75 + bg_xmin
+      ymax = 73 + bg_ymax; ymin = -107 + bg_ymin
+    } else if (view %in% c("front", "back")) {
+      xmax = 70 + bg_xmax; xmin = -70 + bg_xmin
+      ymax = 80 + bg_ymax; ymin = -48 + bg_ymin
+    } else if (view == "left") {
+      xmax = 103 + bg_xmax; xmin = -72 + bg_xmin
+      ymax = 77 + bg_ymax; ymin = -50 + bg_ymin
+    } else if (view == "right") {
+      xmax = 103 + bg_xmax; xmin = -140 + bg_xmin
+      ymax = 77 + bg_ymax; ymin = -50 + bg_ymin
+    }
+    
+    # Create a simplified 2D projection
+    # We'll create a basic grayscale background based on depth
+    resolution <- 256
+    x_range <- seq(xmin, xmax, length.out = resolution)
+    y_range <- seq(ymin, ymax, length.out = resolution)
+    
+    # Create a simple depth-based coloring
+    depth_normalized <- rescale(depth, to = c(0.3, 0.8))
+    
+    # Create a basic background matrix
+    bg_matrix <- array(0.5, dim = c(resolution, resolution, 4))
+    bg_matrix[,,4] <- background.alpha  # Set alpha channel
+    
+    # Convert to rasterGrob
+    w <- matrix(rgb(bg_matrix[,,1], bg_matrix[,,2], bg_matrix[,,3], 
+                    bg_matrix[,,4]), nrow = resolution)
+    return(rasterGrob(w))
+  }
 
   ifelse(is.character(atlas), data <- get(atlas), data <- atlas)
 
@@ -77,13 +147,11 @@ brainconn <- function(atlas,
     ortho_list <- list()
     ortho_views  <- c("top", "left", "front")
     for (v in 1:3) {
-      view <- ortho_views[v]
-      bg <- paste0("ICBM152_", view)
-      m <- get(bg)
-      w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * background.alpha), nrow=dim(m)[1])
-      background <- rasterGrob(w)
-      #} else {stop(paste('please select a valid background: ', as.character(list.backgroud)))
-      #}
+      current_view <- ortho_views[v]
+      
+      # Generate background from 3D mesh
+      background <- generate_background(current_view, background.alpha, 
+                                      bg_xmin, bg_ymin, bg_xmax, bg_ymax)
 
       #if no conmat is provided, build nparc x  nparc empty one
       nparc <- dim(data)[1]
@@ -93,14 +161,11 @@ brainconn <- function(atlas,
       #convert conmat to matrix
       conmat <- as.matrix(conmat)
 
-
       #Remove nodes with no edges
       rownames(conmat) <- colnames(conmat) #this needs to be same same if is.sym to work
       ifelse(isSymmetric.matrix(conmat)==TRUE,
              directed <- FALSE,
              directed <- TRUE)
-
-
 
       if(all.nodes == FALSE && directed == FALSE) {
         include.vec <- vector(length=dim(data)[1])
@@ -110,7 +175,6 @@ brainconn <- function(atlas,
         data <- data[as.logical(include.vec), ,drop=F]
         conmat <- conmat[which(rowSums(conmat, na.rm = T) != 0), which(colSums(conmat, na.rm = T) != 0), drop = F]
       }
-
 
       if(all.nodes==FALSE && directed == TRUE) {
         include.vec <- vector(length=dim(data)[1])
@@ -131,7 +195,7 @@ brainconn <- function(atlas,
                                     data=data,
                                     background=background,
                                     node.size=node.size,
-                                    view=view,
+                                    view=current_view,
                                     node.color=node.color,
                                     thr=thr,
                                     uthr=uthr,
@@ -147,8 +211,6 @@ brainconn <- function(atlas,
       if(is.environment(edge.color) == T) {
         ortho_list[[v]] <- ortho_list[[v]] + edge.color
       }
-
-
     }
 
     right_col <- plot_grid(ortho_list[[2]],
@@ -157,26 +219,19 @@ brainconn <- function(atlas,
                            rel_heights = c(1, 1.45))
     p <- plot_grid(ortho_list[[1]], right_col, rel_widths = c(1.8,1.2))
     return(p)
-
-
   }
-
-
-
-
 
   # If not ortho, then do the below:
   if(background=='ICBM152') {
-    bg <- paste0("ICBM152_", view)
-    m <- get(bg)
-    w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * background.alpha), nrow=dim(m)[1])
+    background <- generate_background(view, background.alpha, 
+                                    bg_xmin, bg_ymin, bg_xmax, bg_ymax)
   }
 
   if(background!='ICBM152') {
     m <- OpenImageR::readImage(background)
+    w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * background.alpha), nrow=dim(m)[1])
+    background <- rasterGrob(w)
   }
-  w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * background.alpha), nrow=dim(m)[1])
-  background <- rasterGrob(w)
 
   #if no conmat is provided, build nparc x  nparc empty one
   nparc <- dim(data)[1]
@@ -185,14 +240,11 @@ brainconn <- function(atlas,
   #convert conmat to matrix
   conmat <- as.matrix(conmat)
 
-
   #Remove nodes with no edges
   rownames(conmat) <- colnames(conmat) #this needs to be same same if is.sym to work
   ifelse(isSymmetric.matrix(conmat)==TRUE,
          directed <- FALSE,
          directed <- TRUE)
-
-
 
   if(all.nodes == FALSE && directed == FALSE) {
     include.vec <- vector(length=dim(data)[1])
@@ -202,7 +254,6 @@ brainconn <- function(atlas,
     data <- data[as.logical(include.vec), ,drop=F]
     conmat <- conmat[which(rowSums(conmat, na.rm = T) != 0), which(colSums(conmat, na.rm = T) != 0), drop = F]
   }
-
 
   if(all.nodes==FALSE && directed == TRUE) {
     include.vec <- vector(length=dim(data)[1])
@@ -216,9 +267,6 @@ brainconn <- function(atlas,
     include.vec <- rep(1, length=dim(data)[1])
   }
 
-
-  #if interactive call build_plot_int, else call build con
-  #  source("functions/build_plot.R")
   p <- build_plot(conmat=conmat,
                   data=data,
                   background=background,
@@ -242,16 +290,5 @@ brainconn <- function(atlas,
                   bg_ymax=bg_ymax,
                   bg_ymin=bg_ymin)
 
-  #  source("functions/build_plot_int.R")
-  #if(interactive==TRUE){p <- build_plot_int(conmat, data, background, node.size=node.size, view,
-  #                                             node.color=node.color, thr=NULL, uthr=NULL,
-  #                                             edge.color=edge.color,edge.alpha=edge.alpha,
-  #                                             edge.width=edge.width,  scale.edge.width=scale.edge.width,
-  #                                             show.legend=show.legend, labels=labels, label.size=label.size,
-  #                                             include.vec=include.vec, view=view, edge.color.weighted=edge.color.weighted)}
   return(p)
-
-
-
-
 }
