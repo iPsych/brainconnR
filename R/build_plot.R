@@ -58,7 +58,7 @@ build_plot <- function(conmat,
       coords$depth <- data$y.mni
       coords$xlim <- c(-70 + bg_xmin, 70 + bg_xmax)
       coords$ylim <- c(-54 + bg_ymin, 80 + bg_ymax)  # Expanded bottom limit
-      coords$bg_xlim <- c(-78 + bg_xmin, 78 + bg_xmax)
+      coords$bg_xlim <- c(-78 + bg_xmin, 78 + bg_xmax)  # 12% expansion
       coords$bg_ylim <- c(-56 + bg_ymin, 88 + bg_ymax)
     } else if (view == "back") {
       coords$x.mni <- data$x.mni * -1
@@ -66,7 +66,7 @@ build_plot <- function(conmat,
       coords$depth <- data$y.mni * -1
       coords$xlim <- c(-70 + bg_xmin, 70 + bg_xmax)
       coords$ylim <- c(-54 + bg_ymin, 80 + bg_ymax)  # Expanded bottom limit
-      coords$bg_xlim <- c(-78 + bg_xmin, 78 + bg_xmax)
+      coords$bg_xlim <- c(-78 + bg_xmin, 78 + bg_xmax)  # 12% expansion
       coords$bg_ylim <- c(-56 + bg_ymin, 88 + bg_ymax)
     } else if (view == "left") {
       coords$x.mni <- data$y.mni * -1
@@ -74,7 +74,7 @@ build_plot <- function(conmat,
       coords$depth <- data$x.mni
       coords$xlim <- c(-64, 98)  # Use the adjusted limits directly
       coords$ylim <- c(-50, 80)  # Expanded bottom limit to prevent cropping
-      coords$bg_xlim <- c(-85 + bg_xmin, 116 + bg_xmax)
+      coords$bg_xlim <- c(-85 + bg_xmin, 116 + bg_xmax)  # 15% expansion
       coords$bg_ylim <- c(-60 + bg_ymin, 87 + bg_ymax)
     } else if (view == "right") {
       coords$x.mni <- data$y.mni
@@ -82,7 +82,7 @@ build_plot <- function(conmat,
       coords$depth <- data$x.mni * -1
       coords$xlim <- c(-98, 64)  # Use the adjusted limits directly
       coords$ylim <- c(-50, 80)  # Expanded bottom limit to prevent cropping
-      coords$bg_xlim <- c(-158 + bg_xmin, 121 + bg_xmax)
+      coords$bg_xlim <- c(-158 + bg_xmin, 121 + bg_xmax)  # 15% expansion
       coords$bg_ylim <- c(-60 + bg_ymin, 87 + bg_ymax)
     }
     
