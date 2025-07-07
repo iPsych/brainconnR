@@ -40,38 +40,50 @@ build_plot <- function(conmat,
       coords$x.mni <- data$x.mni
       coords$y.mni <- data$y.mni
       coords$depth <- data$z.mni
-      coords$xlim <- c(-75 + bg_xmin, 70 + bg_xmax)
+      coords$xlim <- c(-75 + bg_xmin, 70 + bg_xmax)  # Node coordinate limits (unchanged)
       coords$ylim <- c(-107 + bg_ymin, 73 + bg_ymax)
+      coords$bg_xlim <- c(-82 + bg_xmin, 77 + bg_xmax)  # Background limits (5% expanded)
+      coords$bg_ylim <- c(-116 + bg_ymin, 82 + bg_ymax)
     } else if (view == "bottom") {
       coords$x.mni <- data$x.mni * -1
       coords$y.mni <- data$y.mni
       coords$depth <- data$z.mni * -1
       coords$xlim <- c(-70 + bg_xmin, 70 + bg_xmax)
       coords$ylim <- c(-107 + bg_ymin, 73 + bg_ymax)
+      coords$bg_xlim <- c(-82 + bg_xmin, 77 + bg_xmax)
+      coords$bg_ylim <- c(-116 + bg_ymin, 82 + bg_ymax)
     } else if (view == "front") {
       coords$x.mni <- data$x.mni
       coords$y.mni <- data$z.mni
       coords$depth <- data$y.mni
       coords$xlim <- c(-70 + bg_xmin, 70 + bg_xmax)
       coords$ylim <- c(-48 + bg_ymin, 80 + bg_ymax)
+      coords$bg_xlim <- c(-77 + bg_xmin, 77 + bg_xmax)
+      coords$bg_ylim <- c(-54 + bg_ymin, 86 + bg_ymax)
     } else if (view == "back") {
       coords$x.mni <- data$x.mni * -1
       coords$y.mni <- data$z.mni
       coords$depth <- data$y.mni * -1
       coords$xlim <- c(-70 + bg_xmin, 70 + bg_xmax)
       coords$ylim <- c(-48 + bg_ymin, 80 + bg_ymax)
+      coords$bg_xlim <- c(-77 + bg_xmin, 77 + bg_xmax)
+      coords$bg_ylim <- c(-54 + bg_ymin, 86 + bg_ymax)
     } else if (view == "left") {
       coords$x.mni <- data$y.mni * -1
       coords$y.mni <- data$z.mni
       coords$depth <- data$x.mni
-      coords$xlim <- c(-72 + bg_xmin, 103 + bg_xmax)
-      coords$ylim <- c(-50 + bg_ymin, 77 + bg_ymax)
+      coords$xlim <- c(-64, 98)  # Use the adjusted limits directly
+      coords$ylim <- c(-44, 76)
+      coords$bg_xlim <- c(-81 + bg_xmin, 112 + bg_xmax)
+      coords$bg_ylim <- c(-56 + bg_ymin, 83 + bg_ymax)
     } else if (view == "right") {
       coords$x.mni <- data$y.mni
       coords$y.mni <- data$z.mni
       coords$depth <- data$x.mni * -1
-      coords$xlim <- c(-140 + bg_xmin, 103 + bg_xmax)
-      coords$ylim <- c(-50 + bg_ymin, 77 + bg_ymax)
+      coords$xlim <- c(-98, 64)  # Use the adjusted limits directly
+      coords$ylim <- c(-44, 76)
+      coords$bg_xlim <- c(-152 + bg_xmin, 115 + bg_xmax)
+      coords$bg_ylim <- c(-56 + bg_ymin, 83 + bg_ymax)
     }
     
     return(coords)
@@ -82,8 +94,10 @@ build_plot <- function(conmat,
   x.mni <- view_coords$x.mni
   y.mni <- view_coords$y.mni
   depth <- view_coords$depth
-  xlim <- view_coords$xlim
+  xlim <- view_coords$xlim  # Node coordinate limits (unchanged)
   ylim <- view_coords$ylim
+  bg_xlim <- view_coords$bg_xlim  # Background limits (expanded)
+  bg_ylim <- view_coords$bg_ylim
 
   if (!exists("conmat")) stop(print("Please enter a valid connectivity matrix"))
 
@@ -107,8 +121,8 @@ build_plot <- function(conmat,
   # Build the base plot with background
   p <- ggraph(layout, circular = FALSE) +
     annotation_custom(background, 
-                     xmax = xlim[2], xmin = xlim[1], 
-                     ymax = ylim[2], ymin = ylim[1]) +
+                     xmax = bg_xlim[2], xmin = bg_xlim[1], 
+                     ymax = bg_ylim[2], ymin = bg_ylim[1]) +
     coord_fixed(xlim = xlim, ylim = ylim)
 
   # Add edges based on graph type
