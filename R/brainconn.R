@@ -22,6 +22,7 @@
 #' @param scale.edge.width If \code{edge.color.weighted=FALSE}, you can use this rescale the edge.width according to weight. e.g. \code{scale.edge.width = c(1,3)}
 #' @param label.size If labels=TRUE then, \code{label.size} can can be set as in integer to control the size of the labels.
 #' @param label.edge.weight if \code{TRUE}, then the edge weight will be labels along the edge.
+#' @param use_mesh_background if \code{TRUE}, generates background from 3D mesh instead of using pre-generated .rda files
 #'
 #' @return a ggraph object
 #'
@@ -33,7 +34,10 @@
 #' @examples
 #' library(brainconn)
 #' x <- example_unweighted_undirected
+#' # Use pre-generated backgrounds (default)
 #' brainconn(atlas ="schaefer300_n7", conmat=x, node.size = 3, view="ortho")
+#' # Force use of 3D mesh backgrounds
+#' brainconn(atlas ="schaefer300_n7", conmat=x, node.size = 3, view="ortho", use_mesh_background = TRUE)
 #' @export
 brainconn <- function(atlas,
                       background='ICBM152',
@@ -58,17 +62,20 @@ brainconn <- function(atlas,
                       bg_xmax=0,
                       bg_xmin=0,
                       bg_ymax=0,
-                      bg_ymin=0) {
+                      bg_ymin=0,
+                      use_mesh_background = FALSE) {
 
   # Helper function to generate 2D background from 3D mesh
-  generate_background <- function(view, background.alpha, bg_xmin, bg_ymin, bg_xmax, bg_ymax) {
+  generate_background <- function(view, background.alpha, bg_xmin, bg_ymin, bg_xmax, bg_ymax, use_mesh = FALSE) {
     
-    # First try to load existing background if available
-    bg_name <- paste0("ICBM152_", view)
-    if (exists(bg_name)) {
-      m <- get(bg_name)
-      w <- matrix(rgb(m[,,1], m[,,2], m[,,3], m[,,4] * background.alpha), nrow=dim(m)[1])
-      return(rasterGrob(w))
+    # First try to load existing background if available and not forcing mesh
+    if (!use_mesh) {
+      bg_name <- paste0("ICBM152_", view)
+      if (exists(bg_name)) {
+        m <- get(bg_name)
+        w <- matrix(rgb(m[,,1], m[,,2], m[,,3], m[,,4] * background.alpha), nrow=dim(m)[1])
+        return(rasterGrob(w))
+      }
     }
     # Load 3D mesh data once
     vb <- get("ICBM152_mesh_vb")
@@ -217,7 +224,7 @@ brainconn <- function(atlas,
       
       # Generate background from 3D mesh
       background <- generate_background(current_view, background.alpha, 
-                                      bg_xmin, bg_ymin, bg_xmax, bg_ymax)
+                                      bg_xmin, bg_ymin, bg_xmax, bg_ymax, use_mesh_background)
 
       #if no conmat is provided, build nparc x  nparc empty one
       nparc <- dim(data)[1]
@@ -290,7 +297,7 @@ brainconn <- function(atlas,
   # If not ortho, then do the below:
   if(background=='ICBM152') {
     background <- generate_background(view, background.alpha, 
-                                    bg_xmin, bg_ymin, bg_xmax, bg_ymax)
+                                    bg_xmin, bg_ymin, bg_xmax, bg_ymax, use_mesh_background)
   }
 
   if(background!='ICBM152') {
