@@ -106,10 +106,10 @@ brainconn <- function(atlas,
       depth <- x_3d * -1
     }
     
-    # Set view-specific limits (5% expansion for bigger brain background)
+    # Set view-specific limits (2% expansion for top/bottom, 5% for others)
     if (view %in% c("top", "bottom")) {
-      xmax = 77 + bg_xmax; xmin = -82 + bg_xmin
-      ymax = 82 + bg_ymax; ymin = -116 + bg_ymin
+      xmax = 73 + bg_xmax; xmin = -78 + bg_xmin  # 2% expansion for top/bottom
+      ymax = 77 + bg_ymax; ymin = -111 + bg_ymin
     } else if (view %in% c("front", "back")) {
       xmax = 77 + bg_xmax; xmin = -77 + bg_xmin
       ymax = 86 + bg_ymax; ymin = -54 + bg_ymin
@@ -282,8 +282,8 @@ brainconn <- function(atlas,
     right_col <- plot_grid(ortho_list[[2]],
                            ortho_list[[3]],
                            nrow=2,
-                           rel_heights = c(1, 1.45))
-    p <- plot_grid(ortho_list[[1]], right_col, rel_widths = c(1.8,1.2))
+                           rel_heights = c(1.2, 1.45))  # Increased space for left view
+    p <- plot_grid(ortho_list[[1]], right_col, rel_widths = c(1.6,1.4))  # More balanced widths
     return(p)
   }
 
