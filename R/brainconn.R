@@ -28,8 +28,8 @@
 #' @import ggraph
 #' @import cowplot
 #' @import grid
-#' @import OpenImageR
 #' @importFrom grDevices rgb
+#' @importFrom scales colour_ramp brewer_pal rescale
 #' @examples
 #' library(brainconn)
 #' x <- example_unweighted_undirected
@@ -60,7 +60,143 @@ brainconn <- function(atlas,
                       bg_ymax=0,
                       bg_ymin=0) {
 
-
+  # Helper function to generate 2D background from 3D mesh
+  generate_background <- function(view, background.alpha, bg_xmin, bg_ymin, bg_xmax, bg_ymax) {
+    
+    # First try to load existing background if available
+    bg_name <- paste0("ICBM152_", view)
+    if (exists(bg_name)) {
+      m <- get(bg_name)
+      w <- matrix(rgb(m[,,1], m[,,2], m[,,3], m[,,4] * background.alpha), nrow=dim(m)[1])
+      return(rasterGrob(w))
+    }
+    # Load 3D mesh data once
+    vb <- get("ICBM152_mesh_vb")
+    it <- get("ICBM152_mesh_it")
+    
+    # Extract 3D coordinates
+    x_3d <- vb[1,]
+    y_3d <- vb[2,]
+    z_3d <- vb[3,]
+    
+    # Apply view-specific coordinate transformations
+    if (view == "top") {
+      x_2d <- x_3d
+      y_2d <- y_3d
+      depth <- z_3d
+    } else if (view == "bottom") {
+      x_2d <- x_3d * -1
+      y_2d <- y_3d
+      depth <- z_3d * -1
+    } else if (view == "front") {
+      x_2d <- x_3d
+      y_2d <- z_3d
+      depth <- y_3d
+    } else if (view == "back") {
+      x_2d <- x_3d * -1
+      y_2d <- z_3d
+      depth <- y_3d * -1
+    } else if (view == "left") {
+      x_2d <- y_3d * -1
+      y_2d <- z_3d
+      depth <- x_3d
+    } else if (view == "right") {
+      x_2d <- y_3d
+      y_2d <- z_3d
+      depth <- x_3d * -1
+    }
+    
+    # Set view-specific limits
+    if (view %in% c("top", "bottom")) {
+      xmax = 70 + bg_xmax; xmin = -75 + bg_xmin
+      ymax = 73 + bg_ymax; ymin = -107 + bg_ymin
+    } else if (view %in% c("front", "back")) {
+      xmax = 70 + bg_xmax; xmin = -70 + bg_xmin
+      ymax = 80 + bg_ymax; ymin = -48 + bg_ymin
+    } else if (view == "left") {
+      xmax = 103 + bg_xmax; xmin = -72 + bg_xmin
+      ymax = 77 + bg_ymax; ymin = -50 + bg_ymin
+    } else if (view == "right") {
+      xmax = 103 + bg_xmax; xmin = -140 + bg_xmin
+      ymax = 77 + bg_ymax; ymin = -50 + bg_ymin
+    }
+    
+    # Create brain outline by rasterizing mesh triangles
+    resolution <- 512
+    
+    # Create coordinate matrices for the 2D grid
+    x_grid <- seq(xmin, xmax, length.out = resolution)
+    y_grid <- seq(ymin, ymax, length.out = resolution)
+    
+    # Initialize the image matrix
+    brain_img <- array(1, dim = c(resolution, resolution, 4))  # Start with white background
+    
+    # Calculate triangle face depths for z-buffering and coloring
+    triangle_depths <- apply(it, 2, function(face_indices) {
+      mean(depth[face_indices])
+    })
+    
+    # Normalize depths for coloring (darker = deeper)
+    depth_colors <- rescale(triangle_depths, to = c(0.2, 0.8))
+    
+    # Simple rasterization: for each triangle, fill the pixels it covers
+    for (i in 1:ncol(it)) {
+      # Get triangle vertices in 2D
+      v1_idx <- it[1, i]
+      v2_idx <- it[2, i]
+      v3_idx <- it[3, i]
+      
+      tri_x <- c(x_2d[v1_idx], x_2d[v2_idx], x_2d[v3_idx])
+      tri_y <- c(y_2d[v1_idx], y_2d[v2_idx], y_2d[v3_idx])
+      
+      # Skip triangles that are completely outside our view bounds
+      if (max(tri_x) < xmin || min(tri_x) > xmax || 
+          max(tri_y) < ymin || min(tri_y) > ymax) {
+        next
+      }
+      
+      # Find bounding box of triangle in grid coordinates
+      x_min_grid <- max(1, floor((min(tri_x) - xmin) / (xmax - xmin) * resolution))
+      x_max_grid <- min(resolution, ceiling((max(tri_x) - xmin) / (xmax - xmin) * resolution))
+      y_min_grid <- max(1, floor((min(tri_y) - ymin) / (ymax - ymin) * resolution))
+      y_max_grid <- min(resolution, ceiling((max(tri_y) - ymin) / (ymax - ymin) * resolution))
+      
+      # Simple point-in-triangle test for pixels in bounding box
+      for (px in x_min_grid:x_max_grid) {
+        for (py in y_min_grid:y_max_grid) {
+          # Convert pixel coordinates back to world coordinates
+          world_x <- xmin + (px - 1) / (resolution - 1) * (xmax - xmin)
+          world_y <- ymin + (py - 1) / (resolution - 1) * (ymax - ymin)
+          
+          # Simple point-in-triangle test using barycentric coordinates
+          denom <- (tri_y[2] - tri_y[3]) * (tri_x[1] - tri_x[3]) + 
+                   (tri_x[3] - tri_x[2]) * (tri_y[1] - tri_y[3])
+          
+          if (abs(denom) > 1e-10) {  # Avoid division by zero
+            a <- ((tri_y[2] - tri_y[3]) * (world_x - tri_x[3]) + 
+                  (tri_x[3] - tri_x[2]) * (world_y - tri_y[3])) / denom
+            b <- ((tri_y[3] - tri_y[1]) * (world_x - tri_x[3]) + 
+                  (tri_x[1] - tri_x[3]) * (world_y - tri_y[3])) / denom
+            c <- 1 - a - b
+            
+            # Point is inside triangle if all barycentric coordinates are positive
+            if (a >= 0 && b >= 0 && c >= 0) {
+              color_val <- depth_colors[i]
+              brain_img[py, px, 1] <- color_val  # R
+              brain_img[py, px, 2] <- color_val  # G  
+              brain_img[py, px, 3] <- color_val  # B
+              brain_img[py, px, 4] <- background.alpha  # Alpha
+            }
+          }
+        }
+      }
+    }
+    
+    # Convert to rasterGrob
+    w <- matrix(rgb(brain_img[,,1], brain_img[,,2], brain_img[,,3], 
+                    brain_img[,,4]), nrow = resolution)
+    return(rasterGrob(w))
+  }
 
   ifelse(is.character(atlas), data <- get(atlas), data <- atlas)
 
@@ -77,13 +213,11 @@ brainconn <- function(atlas,
     ortho_list <- list()
     ortho_views  <- c("top", "left", "front")
     for (v in 1:3) {
-      view <- ortho_views[v]
-      bg <- paste0("ICBM152_", view)
-      m <- get(bg)
-      w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * background.alpha), nrow=dim(m)[1])
-      background <- rasterGrob(w)
-      #} else {stop(paste('please select a valid background: ', as.character(list.backgroud)))
-      #}
+      current_view <- ortho_views[v]
+      
+      # Generate background from 3D mesh
+      background <- generate_background(current_view, background.alpha, 
+                                      bg_xmin, bg_ymin, bg_xmax, bg_ymax)
 
       #if no conmat is provided, build nparc x  nparc empty one
       nparc <- dim(data)[1]
@@ -93,14 +227,11 @@ brainconn <- function(atlas,
       #convert conmat to matrix
       conmat <- as.matrix(conmat)
 
-
       #Remove nodes with no edges
       rownames(conmat) <- colnames(conmat) #this needs to be same same if is.sym to work
       ifelse(isSymmetric.matrix(conmat)==TRUE,
              directed <- FALSE,
              directed <- TRUE)
-
-
 
       if(all.nodes == FALSE && directed == FALSE) {
         include.vec <- vector(length=dim(data)[1])
@@ -110,7 +241,6 @@ brainconn <- function(atlas,
         data <- data[as.logical(include.vec), ,drop=F]
         conmat <- conmat[which(rowSums(conmat, na.rm = T) != 0), which(colSums(conmat, na.rm = T) != 0), drop = F]
       }
-
 
       if(all.nodes==FALSE && directed == TRUE) {
         include.vec <- vector(length=dim(data)[1])
@@ -131,7 +261,7 @@ brainconn <- function(atlas,
                                     data=data,
                                     background=background,
                                     node.size=node.size,
-                                    view=view,
+                                    view=current_view,
                                     node.color=node.color,
                                     thr=thr,
                                     uthr=uthr,
@@ -147,8 +277,6 @@ brainconn <- function(atlas,
       if(is.environment(edge.color) == T) {
         ortho_list[[v]] <- ortho_list[[v]] + edge.color
       }
-
-
     }
 
     right_col <- plot_grid(ortho_list[[2]],
@@ -157,26 +285,19 @@ brainconn <- function(atlas,
                            rel_heights = c(1, 1.45))
     p <- plot_grid(ortho_list[[1]], right_col, rel_widths = c(1.8,1.2))
     return(p)
-
-
   }
-
-
-
-
 
   # If not ortho, then do the below:
   if(background=='ICBM152') {
-    bg <- paste0("ICBM152_", view)
-    m <- get(bg)
-    w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * background.alpha), nrow=dim(m)[1])
+    background <- generate_background(view, background.alpha, 
+                                    bg_xmin, bg_ymin, bg_xmax, bg_ymax)
   }
 
   if(background!='ICBM152') {
     m <- OpenImageR::readImage(background)
+    w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * background.alpha), nrow=dim(m)[1])
+    background <- rasterGrob(w)
   }
-  w <- matrix(rgb(m[,,1],m[,,2],m[,,3], m[,,4] * background.alpha), nrow=dim(m)[1])
-  background <- rasterGrob(w)
 
   #if no conmat is provided, build nparc x  nparc empty one
   nparc <- dim(data)[1]
@@ -185,14 +306,11 @@ brainconn <- function(atlas,
   #convert conmat to matrix
   conmat <- as.matrix(conmat)
 
-
   #Remove nodes with no edges
   rownames(conmat) <- colnames(conmat) #this needs to be same same if is.sym to work
   ifelse(isSymmetric.matrix(conmat)==TRUE,
          directed <- FALSE,
          directed <- TRUE)
-
-
 
   if(all.nodes == FALSE && directed == FALSE) {
     include.vec <- vector(length=dim(data)[1])
@@ -202,7 +320,6 @@ brainconn <- function(atlas,
     data <- data[as.logical(include.vec), ,drop=F]
     conmat <- conmat[which(rowSums(conmat, na.rm = T) != 0), which(colSums(conmat, na.rm = T) != 0), drop = F]
   }
-
 
   if(all.nodes==FALSE && directed == TRUE) {
     include.vec <- vector(length=dim(data)[1])
@@ -216,9 +333,6 @@ brainconn <- function(atlas,
     include.vec <- rep(1, length=dim(data)[1])
   }
 
-
-  #if interactive call build_plot_int, else call build con
-  #  source("functions/build_plot.R")
   p <- build_plot(conmat=conmat,
                   data=data,
                   background=background,
@@ -242,16 +356,5 @@ brainconn <- function(atlas,
                   bg_ymax=bg_ymax,
                   bg_ymin=bg_ymin)
 
-  #  source("functions/build_plot_int.R")
-  #if(interactive==TRUE){p <- build_plot_int(conmat, data, background, node.size=node.size, view,
-  #                                             node.color=node.color, thr=NULL, uthr=NULL,
-  #                                             edge.color=edge.color,edge.alpha=edge.alpha,
-  #                                             edge.width=edge.width,  scale.edge.width=scale.edge.width,
-  #                                             show.legend=show.legend, labels=labels, label.size=label.size,
-  #                                             include.vec=include.vec, view=view, edge.color.weighted=edge.color.weighted)}
   return(p)
-
-
-
-
 }
