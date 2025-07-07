@@ -22,7 +22,7 @@
 #' @param scale.edge.width If \code{edge.color.weighted=FALSE}, you can use this rescale the edge.width according to weight. e.g. \code{scale.edge.width = c(1,3)}
 #' @param label.size If labels=TRUE then, \code{label.size} can can be set as in integer to control the size of the labels.
 #' @param label.edge.weight if \code{TRUE}, then the edge weight will be labels along the edge.
-#' @param use_mesh_background if \code{TRUE}, generates background from 3D mesh instead of using pre-generated .rda files
+#' @param use_mesh_background if \code{TRUE}, generates background from 3D mesh instead of using pre-generated .rda files. Note: Pre-generated backgrounds provide higher quality; mesh generation is primarily a fallback option.
 #'
 #' @return a ggraph object
 #'
@@ -34,9 +34,9 @@
 #' @examples
 #' library(brainconn)
 #' x <- example_unweighted_undirected
-#' # Use pre-generated backgrounds (default)
+#' # Use pre-generated backgrounds (default - highest quality)
 #' brainconn(atlas ="schaefer300_n7", conmat=x, node.size = 3, view="ortho")
-#' # Force use of 3D mesh backgrounds
+#' # Use 3D mesh backgrounds (fallback option, lower quality but more flexible)
 #' brainconn(atlas ="schaefer300_n7", conmat=x, node.size = 3, view="ortho", use_mesh_background = TRUE)
 #' @export
 brainconn <- function(atlas,
@@ -129,24 +129,22 @@ brainconn <- function(atlas,
     }
     
     # Create brain outline by rasterizing mesh triangles
-    resolution <- 512
+    resolution <- 1024  # Higher resolution for better quality
     
     # Create coordinate matrices for the 2D grid
     x_grid <- seq(xmin, xmax, length.out = resolution)
     y_grid <- seq(ymin, ymax, length.out = resolution)
     
-    # Initialize the image matrix
-    brain_img <- array(1, dim = c(resolution, resolution, 4))  # Start with white background
+    # Initialize the image matrix with white background
+    brain_img <- array(1, dim = c(resolution, resolution, 4))
+    brain_mask <- array(0, dim = c(resolution, resolution))  # Binary mask for brain regions
     
     # Calculate triangle face depths for z-buffering and coloring
     triangle_depths <- apply(it, 2, function(face_indices) {
       mean(depth[face_indices])
     })
     
-    # Normalize depths for coloring (darker = deeper)
-    depth_colors <- rescale(triangle_depths, to = c(0.2, 0.8))
-    
-    # Simple rasterization: for each triangle, fill the pixels it covers
+    # Create brain silhouette first by marking all brain-covered pixels
     for (i in 1:ncol(it)) {
       # Get triangle vertices in 2D
       v1_idx <- it[1, i]
@@ -156,44 +154,101 @@ brainconn <- function(atlas,
       tri_x <- c(x_2d[v1_idx], x_2d[v2_idx], x_2d[v3_idx])
       tri_y <- c(y_2d[v1_idx], y_2d[v2_idx], y_2d[v3_idx])
       
-      # Skip triangles that are completely outside our view bounds
+      # Skip triangles outside our view bounds
       if (max(tri_x) < xmin || min(tri_x) > xmax || 
           max(tri_y) < ymin || min(tri_y) > ymax) {
         next
       }
       
-      # Find bounding box of triangle in grid coordinates
-      x_min_grid <- max(1, floor((min(tri_x) - xmin) / (xmax - xmin) * resolution))
-      x_max_grid <- min(resolution, ceiling((max(tri_x) - xmin) / (xmax - xmin) * resolution))
-      y_min_grid <- max(1, floor((min(tri_y) - ymin) / (ymax - ymin) * resolution))
-      y_max_grid <- min(resolution, ceiling((max(tri_y) - ymin) / (ymax - ymin) * resolution))
+      # Convert triangle vertices to pixel coordinates
+      tri_px <- round((tri_x - xmin) / (xmax - xmin) * (resolution - 1)) + 1
+      tri_py <- round((tri_y - ymin) / (ymax - ymin) * (resolution - 1)) + 1
       
-      # Simple point-in-triangle test for pixels in bounding box
-      for (px in x_min_grid:x_max_grid) {
-        for (py in y_min_grid:y_max_grid) {
-          # Convert pixel coordinates back to world coordinates
+      # Ensure coordinates are within bounds
+      tri_px <- pmax(1, pmin(resolution, tri_px))
+      tri_py <- pmax(1, pmin(resolution, tri_py))
+      
+      # Find bounding box
+      x_min_px <- max(1, min(tri_px) - 2)
+      x_max_px <- min(resolution, max(tri_px) + 2)
+      y_min_px <- max(1, min(tri_py) - 2)
+      y_max_px <- min(resolution, max(tri_py) + 2)
+      
+      # Fill triangle using barycentric coordinates
+      for (px in x_min_px:x_max_px) {
+        for (py in y_min_px:y_max_px) {
+          # Convert back to world coordinates for triangle test
           world_x <- xmin + (px - 1) / (resolution - 1) * (xmax - xmin)
           world_y <- ymin + (py - 1) / (resolution - 1) * (ymax - ymin)
           
-          # Simple point-in-triangle test using barycentric coordinates
+          # Barycentric coordinate test
           denom <- (tri_y[2] - tri_y[3]) * (tri_x[1] - tri_x[3]) + 
                    (tri_x[3] - tri_x[2]) * (tri_y[1] - tri_y[3])
           
-          if (abs(denom) > 1e-10) {  # Avoid division by zero
+          if (abs(denom) > 1e-10) {
             a <- ((tri_y[2] - tri_y[3]) * (world_x - tri_x[3]) + 
                   (tri_x[3] - tri_x[2]) * (world_y - tri_y[3])) / denom
             b <- ((tri_y[3] - tri_y[1]) * (world_x - tri_x[3]) + 
                   (tri_x[1] - tri_x[3]) * (world_y - tri_y[3])) / denom
             c <- 1 - a - b
             
-            # Point is inside triangle if all barycentric coordinates are positive
-            if (a >= 0 && b >= 0 && c >= 0) {
-              color_val <- depth_colors[i]
-              brain_img[py, px, 1] <- color_val  # R
-              brain_img[py, px, 2] <- color_val  # G  
-              brain_img[py, px, 3] <- color_val  # B
-              brain_img[py, px, 4] <- background.alpha  # Alpha
+            # Point is inside triangle
+            if (a >= -0.01 && b >= -0.01 && c >= -0.01) {  # Small tolerance for edge pixels
+              brain_mask[py, px] <- 1
             }
+          }
+        }
+      }
+    }
+    
+    # Apply morphological operations to smooth the brain outline
+    # Simple dilation followed by erosion to smooth edges
+    kernel_size <- 3
+    smoothed_mask <- brain_mask
+    
+    # Simple smoothing by averaging neighborhood
+    for (px in (kernel_size+1):(resolution-kernel_size)) {
+      for (py in (kernel_size+1):(resolution-kernel_size)) {
+        if (brain_mask[py, px] == 1) {
+          # Check if we're near an edge and smooth
+          neighborhood <- brain_mask[(py-kernel_size):(py+kernel_size), 
+                                   (px-kernel_size):(px+kernel_size)]
+          if (mean(neighborhood) < 0.8) {  # Near edge
+            smoothed_mask[py, px] <- 0.7  # Slight anti-aliasing
+          }
+        }
+      }
+    }
+    
+    # Create realistic brain coloring based on distance from center and depth variation
+    center_x <- resolution / 2
+    center_y <- resolution / 2
+    
+    for (px in 1:resolution) {
+      for (py in 1:resolution) {
+        if (smoothed_mask[py, px] > 0) {
+          # Distance from center for radial shading
+          dist_from_center <- sqrt((px - center_x)^2 + (py - center_y)^2) / (resolution/2)
+          
+          # Add some noise for texture
+          noise <- sin(px * 0.1) * cos(py * 0.1) * 0.1
+          
+          # Create realistic gray matter coloring
+          base_gray <- 0.4 + 0.3 * (1 - dist_from_center) + noise
+          base_gray <- pmax(0.2, pmin(0.8, base_gray))
+          
+          if (smoothed_mask[py, px] < 1) {
+            # Edge pixels - create anti-aliasing
+            alpha_val <- smoothed_mask[py, px] * background.alpha
+            brain_img[py, px, 1] <- base_gray  # R
+            brain_img[py, px, 2] <- base_gray  # G  
+            brain_img[py, px, 3] <- base_gray  # B
+            brain_img[py, px, 4] <- alpha_val  # Alpha for anti-aliasing
+          } else {
+            brain_img[py, px, 1] <- base_gray  # R
+            brain_img[py, px, 2] <- base_gray  # G  
+            brain_img[py, px, 3] <- base_gray  # B
+            brain_img[py, px, 4] <- background.alpha  # Alpha
           }
         }
       }
