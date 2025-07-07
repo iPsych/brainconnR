@@ -74,16 +74,16 @@ build_plot <- function(conmat,
       coords$depth <- data$x.mni
       coords$xlim <- c(-64, 98)  # Use the adjusted limits directly
       coords$ylim <- c(-50, 80)  # Expanded bottom limit to prevent cropping
-      coords$bg_xlim <- c(-82 + bg_xmin, 114 + bg_xmax)
-      coords$bg_ylim <- c(-58 + bg_ymin, 85 + bg_ymax)
+      coords$bg_xlim <- c(-85 + bg_xmin, 116 + bg_xmax)
+      coords$bg_ylim <- c(-60 + bg_ymin, 87 + bg_ymax)
     } else if (view == "right") {
       coords$x.mni <- data$y.mni
       coords$y.mni <- data$z.mni
       coords$depth <- data$x.mni * -1
       coords$xlim <- c(-98, 64)  # Use the adjusted limits directly
       coords$ylim <- c(-50, 80)  # Expanded bottom limit to prevent cropping
-      coords$bg_xlim <- c(-155 + bg_xmin, 118 + bg_xmax)
-      coords$bg_ylim <- c(-58 + bg_ymin, 85 + bg_ymax)
+      coords$bg_xlim <- c(-158 + bg_xmin, 121 + bg_xmax)
+      coords$bg_ylim <- c(-60 + bg_ymin, 87 + bg_ymax)
     }
     
     return(coords)
