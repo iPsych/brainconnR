@@ -282,8 +282,8 @@ brainconn <- function(atlas,
     right_col <- plot_grid(ortho_list[[2]],
                            ortho_list[[3]],
                            nrow=2,
-                           rel_heights = c(1.2, 1.45))  # Increased space for left view
-    p <- plot_grid(ortho_list[[1]], right_col, rel_widths = c(1.6,1.4))  # More balanced widths
+                           rel_heights = c(1.3, 1.6))  # Give much more space to both views
+    p <- plot_grid(ortho_list[[1]], right_col, rel_widths = c(1.5, 1.5))  # Equal space allocation
     return(p)
   }
 
