@@ -106,19 +106,19 @@ brainconn <- function(atlas,
       depth <- x_3d * -1
     }
     
-    # Set view-specific limits
+    # Set view-specific limits (5% expansion for bigger brain background)
     if (view %in% c("top", "bottom")) {
-      xmax = 70 + bg_xmax; xmin = -75 + bg_xmin
-      ymax = 73 + bg_ymax; ymin = -107 + bg_ymin
+      xmax = 77 + bg_xmax; xmin = -82 + bg_xmin
+      ymax = 82 + bg_ymax; ymin = -116 + bg_ymin
     } else if (view %in% c("front", "back")) {
-      xmax = 70 + bg_xmax; xmin = -70 + bg_xmin
-      ymax = 80 + bg_ymax; ymin = -48 + bg_ymin
+      xmax = 77 + bg_xmax; xmin = -77 + bg_xmin
+      ymax = 86 + bg_ymax; ymin = -54 + bg_ymin
     } else if (view == "left") {
-      xmax = 103 + bg_xmax; xmin = -72 + bg_xmin
-      ymax = 77 + bg_ymax; ymin = -50 + bg_ymin
+      xmax = 112 + bg_xmax; xmin = -81 + bg_xmin
+      ymax = 83 + bg_ymax; ymin = -56 + bg_ymin
     } else if (view == "right") {
-      xmax = 103 + bg_xmax; xmin = -140 + bg_xmin
-      ymax = 77 + bg_ymax; ymin = -50 + bg_ymin
+      xmax = 115 + bg_xmax; xmin = -152 + bg_xmin
+      ymax = 83 + bg_ymax; ymin = -56 + bg_ymin
     }
     
     # Create brain outline by rasterizing mesh triangles
