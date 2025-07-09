@@ -1,11 +1,3 @@
-#' workhorse function for \code{brainconn()}
-#'
-#' returns a ggraph object of plotted brain connectivity matrix
-#' @author Sidhant Chopra
-#' @import ggraph
-#' @import ggplot2
-#' @import grid
-
 build_plot <- function(conmat,
                        data,
                        data.row=NULL,
@@ -30,74 +22,97 @@ build_plot <- function(conmat,
                        bg_ymin=0,
                        bg_xmax=0,
                        bg_ymax=0,
+                       d.factor=1.05,
                        ...) {
 
-  # Helper function to get view-specific coordinates and limits
-  get_view_coords <- function(view, data, bg_xmin, bg_ymin, bg_xmax, bg_ymax) {
-    coords <- list()
+  # Helper function to project 3D coordinates to 2D based on view
+  # Using the same transformations as the original working code
+  project_3d_to_2d <- function(coords_3d, view) {
+    x <- coords_3d[,1]  # x.mni
+    y <- coords_3d[,2]  # y.mni  
+    z <- coords_3d[,3]  # z.mni
     
     if (view == "top") {
-      coords$x.mni <- data$x.mni
-      coords$y.mni <- data$y.mni
-      coords$depth <- data$z.mni
-      coords$xlim <- c(-75 + bg_xmin, 70 + bg_xmax)  # Node coordinate limits (unchanged)
-      coords$ylim <- c(-107 + bg_ymin, 73 + bg_ymax)
-      coords$bg_xlim <- c(-78 + bg_xmin, 73 + bg_xmax)  # Background limits (2% expanded)
-      coords$bg_ylim <- c(-111 + bg_ymin, 77 + bg_ymax)
+      proj_x <- x
+      proj_y <- y
+      depth <- z
     } else if (view == "bottom") {
-      coords$x.mni <- data$x.mni * -1
-      coords$y.mni <- data$y.mni
-      coords$depth <- data$z.mni * -1
-      coords$xlim <- c(-70 + bg_xmin, 70 + bg_xmax)
-      coords$ylim <- c(-107 + bg_ymin, 73 + bg_ymax)
-      coords$bg_xlim <- c(-78 + bg_xmin, 73 + bg_xmax)
-      coords$bg_ylim <- c(-111 + bg_ymin, 77 + bg_ymax)
+      proj_x <- x * -1
+      proj_y <- y
+      depth <- z * -1
     } else if (view == "front") {
-      coords$x.mni <- data$x.mni
-      coords$y.mni <- data$z.mni
-      coords$depth <- data$y.mni
-      coords$xlim <- c(-70 + bg_xmin, 70 + bg_xmax)
-      coords$ylim <- c(-54 + bg_ymin, 80 + bg_ymax)  # Expanded bottom limit
-      coords$bg_xlim <- c(-78 + bg_xmin, 78 + bg_xmax)  # 12% expansion
-      coords$bg_ylim <- c(-56 + bg_ymin, 88 + bg_ymax)
+      proj_x <- x
+      proj_y <- z
+      depth <- y
     } else if (view == "back") {
-      coords$x.mni <- data$x.mni * -1
-      coords$y.mni <- data$z.mni
-      coords$depth <- data$y.mni * -1
-      coords$xlim <- c(-70 + bg_xmin, 70 + bg_xmax)
-      coords$ylim <- c(-54 + bg_ymin, 80 + bg_ymax)  # Expanded bottom limit
-      coords$bg_xlim <- c(-78 + bg_xmin, 78 + bg_xmax)  # 12% expansion
-      coords$bg_ylim <- c(-56 + bg_ymin, 88 + bg_ymax)
+      proj_x <- x * -1
+      proj_y <- z
+      depth <- y * -1
     } else if (view == "left") {
-      coords$x.mni <- data$y.mni * -1
-      coords$y.mni <- data$z.mni
-      coords$depth <- data$x.mni
-      coords$xlim <- c(-64, 98)  # Use the adjusted limits directly
-      coords$ylim <- c(-50, 80)  # Expanded bottom limit to prevent cropping
-      coords$bg_xlim <- c(-85 + bg_xmin, 116 + bg_xmax)  # 15% expansion
-      coords$bg_ylim <- c(-60 + bg_ymin, 87 + bg_ymax)
+      # Original: x.mni <- data$y.mni*-1, y.mni <- data$z.mni, depth <- data$x.mni
+      proj_x <- y * -1
+      proj_y <- z
+      depth <- x
     } else if (view == "right") {
-      coords$x.mni <- data$y.mni
-      coords$y.mni <- data$z.mni
-      coords$depth <- data$x.mni * -1
-      coords$xlim <- c(-98, 64)  # Use the adjusted limits directly
-      coords$ylim <- c(-50, 80)  # Expanded bottom limit to prevent cropping
-      coords$bg_xlim <- c(-158 + bg_xmin, 121 + bg_xmax)  # 15% expansion
-      coords$bg_ylim <- c(-60 + bg_ymin, 87 + bg_ymax)
+      # Original: x.mni <- data$y.mni, y.mni <- data$z.mni, depth <- data$x.mni*-1
+      proj_x <- y
+      proj_y <- z
+      depth <- x * -1
     }
     
-    return(coords)
+    return(data.frame(x = proj_x, y = proj_y, depth = depth))
   }
 
-  # Get coordinates for the specified view
-  view_coords <- get_view_coords(view, data, bg_xmin, bg_ymin, bg_xmax, bg_ymax)
-  x.mni <- view_coords$x.mni
-  y.mni <- view_coords$y.mni
-  depth <- view_coords$depth
-  xlim <- view_coords$xlim  # Node coordinate limits (unchanged)
-  ylim <- view_coords$ylim
-  bg_xlim <- view_coords$bg_xlim  # Background limits (expanded)
-  bg_ylim <- view_coords$bg_ylim
+  # Get actual 3D mesh coordinates to calculate accurate bounds
+  calculate_view_bounds <- function(view, margin_factor = 0.05) {
+    # Load mesh vertices
+    vb <- get("ICBM152_mesh_vb")
+    
+    # Create 3D coordinate matrix (transpose to get n x 3)
+    mesh_coords_3d <- t(vb[1:3, ])  # Only x, y, z coordinates
+    
+    # Project mesh coordinates to 2D
+    mesh_2d <- project_3d_to_2d(mesh_coords_3d, view)
+    
+    # Calculate bounds with margin
+    x_range <- range(mesh_2d$x, na.rm = TRUE)
+    y_range <- range(mesh_2d$y, na.rm = TRUE)
+    
+    x_margin <- diff(x_range) * margin_factor
+    y_margin <- diff(y_range) * margin_factor
+    
+    bounds <- list(
+      x_min = x_range[1] - x_margin,
+      x_max = x_range[2] + x_margin,
+      y_min = y_range[1] - y_margin,
+      y_max = y_range[2] + y_margin
+    )
+    
+    return(bounds)
+  }
+
+  # Calculate accurate bounds for this view
+  bounds <- calculate_view_bounds(view)
+  
+  # Apply user-specified background adjustments
+  bg_bounds <- list(
+    x_min = bounds$x_min + bg_xmin,
+    x_max = bounds$x_max + bg_xmax,
+    y_min = bounds$y_min + bg_ymin,
+    y_max = bounds$y_max + bg_ymax
+  )
+
+  # Project node coordinates to 2D
+  node_coords_3d <- data.frame(
+    x.mni = data$x.mni * d.factor,  # Apply distance factor like in 3D
+    y.mni = data$y.mni * d.factor,
+    z.mni = data$z.mni * d.factor
+  )
+  
+  node_2d <- project_3d_to_2d(node_coords_3d, view)
+  x.mni <- node_2d$x
+  y.mni <- node_2d$y
+  depth <- node_2d$depth
 
   if (!exists("conmat")) stop(print("Please enter a valid connectivity matrix"))
 
@@ -118,12 +133,13 @@ build_plot <- function(conmat,
     layout$facet <- include.vec
   }
 
-  # Build the base plot with background
+  # Build the base plot with background using accurate bounds
   p <- ggraph(layout, circular = FALSE) +
     annotation_custom(background, 
-                     xmax = bg_xlim[2], xmin = bg_xlim[1], 
-                     ymax = bg_ylim[2], ymin = bg_ylim[1]) +
-    coord_fixed(xlim = xlim, ylim = ylim)
+                     xmax = bg_bounds$x_max, xmin = bg_bounds$x_min, 
+                     ymax = bg_bounds$y_max, ymin = bg_bounds$y_min) +
+    coord_fixed(xlim = c(bounds$x_min, bounds$x_max), 
+                ylim = c(bounds$y_min, bounds$y_max))
 
   # Add edges based on graph type
   if (directed && !weighted) {
